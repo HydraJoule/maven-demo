@@ -1,14 +1,14 @@
-# Use official Java image (lightweight Alpine version)
+# Use Java 21 base image
 FROM eclipse-temurin:21-jdk-alpine
 
-# Set working directory inside container
+# Set working directory
 WORKDIR /app
 
-# Copy built JAR file from target directory to container
+# Copy built JAR file from Maven target folder
 COPY target/*.jar app.jar
 
-# Expose the port your app runs on (8080 typical for Spring Boot)
+# Expose the application port (change later if needed)
 EXPOSE 8080
 
-# Command to run the JAR
+# Run the app
 ENTRYPOINT ["java", "-jar", "app.jar"]
