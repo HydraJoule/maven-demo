@@ -2,54 +2,59 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = 'maven-demo'
-        CONTAINER_NAME = 'maven-demo-app'
-        BUILD_NUMBER = "${env.BUILD_NUMBER}"
-        HOST_PORT = '8080'
-        APP_PORT = '8080'
+        DOCKER_HUB_REPO = 'hydrajoule/myapp'
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
-                checkout scm
-            }
-        }
-
-        stage('Build with Maven') {
-            steps {
-                echo '🏗️ Building project with Maven...'
-                bat 'mvn clean package -DskipTests'
+                echo 'Checking out source code...'
+                // if you’re using a git repo, replace with your repo URL:
+                // git 'https://github.com/your-username/myapp.git'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo '🐳 Building Docker image...'
-                bat "docker build -t %IMAGE_NAME%:%BUILD_NUMBER% ."
+                echo 'Building Docker image...'
+                sh 'docker build -t $DOCKER_HUB_REPO:$IMAGE_TAG .'
             }
         }
 
-        stage('Run Docker Container') {
+        stage('Login to Docker Hub') {
             steps {
-                echo '🧹 Removing old container if it exists...'
-                bat '''
-                for /F "tokens=*" %%i in ('docker ps -a -q -f "name=%CONTAINER_NAME%"') do docker rm -f %%i
-                exit /b 0
-                '''
+                echo 'Logging into Docker Hub...'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                }
+            }
+        }
 
-                echo '🚀 Starting new Docker container...'
-                bat "docker run -d -p %HOST_PORT%:%APP_PORT% --name %CONTAINER_NAME% %IMAGE_NAME%:%BUILD_NUMBER%"
+        stage('Push Image to Docker Hub') {
+            steps {
+                echo 'Pushing image to Docker Hub...'
+                sh 'docker push $DOCKER_HUB_REPO:$IMAGE_TAG'
+                sh 'docker tag $DOCKER_HUB_REPO:$IMAGE_TAG $DOCKER_HUB_REPO:latest'
+                sh 'docker push $DOCKER_HUB_REPO:latest'
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                echo 'Cleaning up local images...'
+                sh 'docker rmi $DOCKER_HUB_REPO:$IMAGE_TAG || true'
+                sh 'docker logout'
             }
         }
     }
 
     post {
         success {
-            echo '✅ Build and deployment successful!'
+            echo "✅ Image successfully pushed to Docker Hub: $DOCKER_HUB_REPO:$IMAGE_TAG"
         }
         failure {
-            echo '❌ Build or deployment failed. Check logs for details.'
-        }
-    }
+            echo "❌ Build failed. Check logs."
+        }
+    }
 }
