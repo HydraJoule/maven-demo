@@ -32,15 +32,19 @@ pipeline {
         }
 
         stage('Run Docker Container') {
-            steps {
-                echo "Stopping and removing old container if it exists..."
-                bat '''
-                for /f "tokens=*" %%i in ('docker ps -a -q -f name=%CONTAINER_NAME%') do docker rm -f %%i
-                '''
-                echo "Running new Docker container..."
-                bat 'docker run -d --name %CONTAINER_NAME% -p %HOST_PORT%:%APP_PORT% %IMAGE_NAME%:%IMAGE_TAG%'
-            }
-        }
+    steps {
+        echo 'Stopping and removing old container if it exists...'
+        bat '''
+        for /f "tokens=*" %%i in ('docker ps -a -q -f "name=%CONTAINER_NAME%"') do docker rm -f %%i
+        '''
+
+        echo 'Running new Docker container...'
+        bat '''
+        docker run -d -p %HOST_PORT%:%APP_PORT% --name %CONTAINER_NAME% maven-demo:%BUILD_NUMBER%
+        '''
+    }
+}
+
     }
 
     post {
